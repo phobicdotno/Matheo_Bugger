@@ -4,56 +4,27 @@
 #include <MD_MAX72XX.h>
 #include <SPI.h>
 
-// === MATRIX SETUP ===
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES 4
 #define CS_PIN 5
 #define BUTTON_PIN 13
 
-bool messageConfirmed = false;
-bool displayOn = true;
-
 MD_Parola display = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
-// === NETWORK CONFIG ===
+bool messageConfirmed = false;
+bool displayOn = true;
+String currentText = "";
+
+// WiFi Config
 const char* ssid = "teliaphobic";
 const char* password = "bdxCugDF";
-
 IPAddress local_IP(192, 168, 1, 111);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 WebServer server(80);
 
-String currentText = "";
-
-// === UTF-8 Decoding ===
-String urlDecode(const String& input) {
-  String decoded = "";
-  char temp[] = "0x00";
-  unsigned int len = input.length();
-  unsigned int i = 0;
-
-  while (i < len) {
-    char c = input.charAt(i);
-    if (c == '+') {
-      decoded += ' ';
-    } else if (c == '%') {
-      if (i + 2 < len) {
-        temp[2] = input.charAt(i + 1);
-        temp[3] = input.charAt(i + 2);
-        decoded += (char)strtol(temp, NULL, 16);
-        i += 2;
-      }
-    } else {
-      decoded += c;
-    }
-    i++;
-  }
-  return decoded;
-}
-
-// === HTML HANDLER ===
+// === HTML UI ===
 void handleRoot() {
   String html = R"rawliteral(
 <!DOCTYPE html>
@@ -63,62 +34,27 @@ void handleRoot() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>❤️ Matheo Bugger ❤️</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 1em;
-      margin: 0;
-      background-color: #f0f0f0;
-    }
-    h2 {
-      text-align: center;
-      font-size: 1.5em;
-    }
-    form {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 1.5em;
-    }
+    body { font-family: sans-serif; padding: 1em; background-color: #f0f0f0; }
+    h2 { text-align: center; }
+    form { display: flex; flex-direction: column; align-items: center; }
     input[type="text"] {
-      width: 90%;
-      max-width: 300px;
-      padding: 12px;
-      font-size: 1em;
-      margin: 0.5em 0;
+      width: 90%; max-width: 300px; padding: 12px; font-size: 1em;
     }
     input[type="submit"] {
-      padding: 12px 20px;
-      font-size: 1em;
-      border: none;
-      border-radius: 5px;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-      margin-top: 0.3em;
+      margin-top: 0.5em; padding: 12px; font-size: 1em;
+      background: #007bff; color: white; border: none; border-radius: 5px;
     }
-    input[type="submit"]:hover {
-      background-color: #0056b3;
-    }
-    p {
-      text-align: center;
-      font-size: 1.1em;
-    }
-    #confirmStatus {
-      font-weight: bold;
-    }
+    input[type="submit"]:hover { background-color: #0056b3; }
+    #confirmStatus { font-weight: bold; text-align: center; }
   </style>
   <script>
     function updateStatus() {
       fetch('/status')
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
           document.getElementById('displayState').innerText = data.displayOn ? "ON" : "OFF";
           const statusEl = document.getElementById('confirmStatus');
-          if (data.messageConfirmed) {
-            statusEl.innerHTML = "MESSAGE RECEIVED! ✅";
-          } else {
-            statusEl.innerText = "Waiting for confirmation...";
-          }
+          statusEl.innerHTML = data.messageConfirmed ? "MESSAGE RECEIVED! ✅" : "Waiting for confirmation...";
         });
     }
     setInterval(updateStatus, 2000);
@@ -127,16 +63,13 @@ void handleRoot() {
 </head>
 <body>
   <h2>❤️ Matheo Bugger ❤️</h2>
-
-  <form action="/set" method="get" accept-charset="UTF-8">
-    <input type="text" name="text" placeholder="Enter message..." />
+  <form action="/set" method="get" accept-charset="ISO-8859-1">
+    <input type="text" name="text" placeholder="Type here… æøå ÆØÅ ❤️" />
     <input type="submit" value="Update Message" />
   </form>
-
   <form action="/toggle" method="get">
     <input type="submit" value="Toggle Display" />
   </form>
-
   <p><strong>Display:</strong> <span id="displayState">...</span></p>
   <p id="confirmStatus">Loading...</p>
 </body>
@@ -146,10 +79,10 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
-// === /set Handler ===
+// === Set handler ===
 void handleSet() {
   if (server.hasArg("text")) {
-    currentText = urlDecode(server.arg("text"));
+    currentText = server.arg("text");
     messageConfirmed = false;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
@@ -158,7 +91,7 @@ void handleSet() {
   server.send(302, "text/plain", "");
 }
 
-// === /toggle Handler ===
+// === Toggle handler ===
 void handleToggle() {
   displayOn = !displayOn;
   if (!displayOn) {
@@ -170,41 +103,32 @@ void handleToggle() {
   server.send(302, "text/plain", "");
 }
 
-// === SETUP ===
 void setup() {
   Serial.begin(115200);
+  delay(2000); // Let USB settle (for dev mode)
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  // LED Matrix
   display.begin();
   display.setIntensity(5);
   display.displayClear();
-  display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
 
-  // WiFi
+  // WiFi Init
   WiFi.config(local_IP, gateway, subnet);
   WiFi.begin(ssid, password);
 
-  Serial.print("Connecting to WiFi");
-  int wifiTimeout = 0;
-  while (WiFi.status() != WL_CONNECTED && wifiTimeout < 20) {
+  int timeout = 0;
+  while (WiFi.status() != WL_CONNECTED && timeout++ < 20) {
     delay(500);
-    Serial.print(".");
-    wifiTimeout++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    IPAddress ip = WiFi.localIP();
-    Serial.println("\n✅ WiFi connected!");
-    Serial.print("📡 IP: ");
-    Serial.println(ip);
-    currentText = "WiFi OK: " + ip.toString();
+    currentText = "WiFi OK: " + WiFi.localIP().toString();
   } else {
-    Serial.println("\n❌ WiFi failed to connect.");
     currentText = "No WiFi!";
   }
 
-  // Web server routes
+  display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+
   server.on("/", handleRoot);
   server.on("/set", handleSet);
   server.on("/toggle", handleToggle);
@@ -217,10 +141,8 @@ void setup() {
   });
 
   server.begin();
-  Serial.println("🌐 Web server started.");
 }
 
-// === LOOP ===
 void loop() {
   server.handleClient();
 
@@ -232,6 +154,6 @@ void loop() {
 
   if (digitalRead(BUTTON_PIN) == LOW) {
     messageConfirmed = true;
-    delay(300);  // Debounce
+    delay(300); // debounce
   }
 }
