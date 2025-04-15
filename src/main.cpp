@@ -9,7 +9,9 @@
 #define MAX_DEVICES 4
 #define CS_PIN 5
 #define BUTTON_PIN 13
+
 bool messageConfirmed = false;
+bool displayOn = true;
 
 MD_Parola display = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
@@ -25,10 +27,33 @@ WebServer server(80);
 
 String currentText = "";
 
-bool displayOn = true;
+// === UTF-8 Decoding ===
+String urlDecode(const String& input) {
+  String decoded = "";
+  char temp[] = "0x00";
+  unsigned int len = input.length();
+  unsigned int i = 0;
 
+  while (i < len) {
+    char c = input.charAt(i);
+    if (c == '+') {
+      decoded += ' ';
+    } else if (c == '%') {
+      if (i + 2 < len) {
+        temp[2] = input.charAt(i + 1);
+        temp[3] = input.charAt(i + 2);
+        decoded += (char)strtol(temp, NULL, 16);
+        i += 2;
+      }
+    } else {
+      decoded += c;
+    }
+    i++;
+  }
+  return decoded;
+}
 
-// === HANDLERS ===
+// === HTML HANDLER ===
 void handleRoot() {
   String html = R"rawliteral(
 <!DOCTYPE html>
@@ -101,7 +126,7 @@ void handleRoot() {
   </script>
 </head>
 <body>
-    <h2>❤️ Matheo Bugger ❤️</h2>
+  <h2>❤️ Matheo Bugger ❤️</h2>
 
   <form action="/set" method="get" accept-charset="UTF-8">
     <input type="text" name="text" placeholder="Enter message..." />
@@ -121,10 +146,11 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
+// === /set Handler ===
 void handleSet() {
   if (server.hasArg("text")) {
-    currentText = server.arg("text");
-    messageConfirmed = false;  // Reset confirmation on new message
+    currentText = urlDecode(server.arg("text"));
+    messageConfirmed = false;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
   }
@@ -132,7 +158,7 @@ void handleSet() {
   server.send(302, "text/plain", "");
 }
 
-
+// === /toggle Handler ===
 void handleToggle() {
   displayOn = !displayOn;
   if (!displayOn) {
@@ -144,57 +170,57 @@ void handleToggle() {
   server.send(302, "text/plain", "");
 }
 
+// === SETUP ===
 void setup() {
   Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  // === MATRIX INIT ===
+  // LED Matrix
   display.begin();
   display.setIntensity(5);
   display.displayClear();
   display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
 
-  // === WIFI INIT ===
+  // WiFi
   WiFi.config(local_IP, gateway, subnet);
-WiFi.begin(ssid, password);
+  WiFi.begin(ssid, password);
 
-Serial.print("Connecting to WiFi");
-int wifiTimeout = 0;
-while (WiFi.status() != WL_CONNECTED && wifiTimeout < 20) {
-  delay(500);
-  Serial.print(".");
-  wifiTimeout++;
+  Serial.print("Connecting to WiFi");
+  int wifiTimeout = 0;
+  while (WiFi.status() != WL_CONNECTED && wifiTimeout < 20) {
+    delay(500);
+    Serial.print(".");
+    wifiTimeout++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    IPAddress ip = WiFi.localIP();
+    Serial.println("\n✅ WiFi connected!");
+    Serial.print("📡 IP: ");
+    Serial.println(ip);
+    currentText = "WiFi OK: " + ip.toString();
+  } else {
+    Serial.println("\n❌ WiFi failed to connect.");
+    currentText = "No WiFi!";
+  }
+
+  // Web server routes
+  server.on("/", handleRoot);
+  server.on("/set", handleSet);
+  server.on("/toggle", handleToggle);
+  server.on("/status", []() {
+    String json = "{";
+    json += "\"displayOn\":" + String(displayOn ? "true" : "false") + ",";
+    json += "\"messageConfirmed\":" + String(messageConfirmed ? "true" : "false");
+    json += "}";
+    server.send(200, "application/json", json);
+  });
+
+  server.begin();
+  Serial.println("🌐 Web server started.");
 }
 
-if (WiFi.status() == WL_CONNECTED) {
-  IPAddress ip = WiFi.localIP();
-  Serial.println("\n✅ WiFi connected!");
-  Serial.print("📡 IP: ");
-  Serial.println(ip);
-  currentText = "Connected! IP: " + ip.toString();
-} else {
-  Serial.println("\n❌ WiFi failed to connect.");
-  currentText = "No WiFi!";
-}
-
-// === WEB SERVER INIT ===
-server.on("/", handleRoot);
-server.on("/set", handleSet);
-server.on("/toggle", handleToggle);
-server.on("/status", []() {
-  String json = "{";
-  json += "\"displayOn\":" + String(displayOn ? "true" : "false") + ",";
-  json += "\"messageConfirmed\":" + String(messageConfirmed ? "true" : "false");
-  json += "}";
-  server.send(200, "application/json", json);
-});
-
-server.begin();
-Serial.println("🌐 Web server started.");
-
-  
-}
-
+// === LOOP ===
 void loop() {
   server.handleClient();
 
@@ -204,10 +230,8 @@ void loop() {
     }
   }
 
-  // Check for button press (active LOW)
   if (digitalRead(BUTTON_PIN) == LOW) {
     messageConfirmed = true;
     delay(300);  // Debounce
   }
 }
-
