@@ -23,7 +23,8 @@ IPAddress subnet(255, 255, 255, 0);
 
 WebServer server(80);
 
-String currentText = "I am working! ";
+String currentText = "";
+
 bool displayOn = true;
 
 
@@ -35,7 +36,7 @@ void handleRoot() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 Matrix Control</title>
+  <title>❤️ Matheo Bugger ❤️</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -100,9 +101,9 @@ void handleRoot() {
   </script>
 </head>
 <body>
-  <h2>ESP32 Matrix Control</h2>
+    <h2>❤️ Matheo Bugger ❤️</h2>
 
-  <form action="/set" method="get">
+  <form action="/set" method="get" accept-charset="UTF-8">
     <input type="text" name="text" placeholder="Enter message..." />
     <input type="submit" value="Update Message" />
   </form>
@@ -166,11 +167,14 @@ while (WiFi.status() != WL_CONNECTED && wifiTimeout < 20) {
 }
 
 if (WiFi.status() == WL_CONNECTED) {
+  IPAddress ip = WiFi.localIP();
   Serial.println("\n✅ WiFi connected!");
   Serial.print("📡 IP: ");
-  Serial.println(WiFi.localIP());
+  Serial.println(ip);
+  currentText = "Connected! IP: " + ip.toString();
 } else {
-  Serial.println("\n❌ WiFi failed to connect. Check SSID/password or IP conflict.");
+  Serial.println("\n❌ WiFi failed to connect.");
+  currentText = "No WiFi!";
 }
 
 // === WEB SERVER INIT ===
