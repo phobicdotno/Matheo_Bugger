@@ -110,7 +110,7 @@ void handleSet() {
     displayOn = true;
     hasScrolled = false;
     display.displayClear();
-    display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
 
   server.sendHeader("Location", "/", true);
@@ -162,6 +162,13 @@ void setup() {
 
   display.begin();
   display.setIntensity(5);
+  display.setZone(0, 0, MAX_DEVICES - 1);
+  display.setZoneEffect(0, true, PA_FLIP_UD);
+display.setZoneEffect(0, true, PA_FLIP_LR);
+
+  display.displayClear();
+
+  display.setIntensity(5);
   display.displayClear();
 
   WiFi.config(local_IP, gateway, subnet);
@@ -171,7 +178,7 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED && timeout++ < 20) delay(500);
 
   currentText = WiFi.status() == WL_CONNECTED ? "WiFi OK: " + WiFi.localIP().toString() : "No WiFi!";
-  display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+  display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   hasScrolled = false;
 
   server.on("/", handleRoot);
@@ -300,7 +307,7 @@ void loop() {
 
   if (displayOn && display.displayAnimate()) {
     if (!hasScrolled) {
-      display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+      display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
       hasScrolled = true;
     }
   }
