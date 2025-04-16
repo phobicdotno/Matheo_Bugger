@@ -3,6 +3,7 @@
 #include <MD_Parola.h>
 #include <MD_MAX72XX.h>
 #include <SPI.h>
+#include <Update.h>
 
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES 4
@@ -70,7 +71,7 @@ void handleRoot() {
   <form action="/toggle" method="get">
     <input type="submit" value="Toggle Display" />
   </form>
-  <p><strong>Display:</strong> <span id="displayState">...</span></p>
+  <p style="text-align: center;"><strong>Display:</strong> <span id="displayState">...</span></p>
   <p id="confirmStatus">Loading...</p>
 </body>
 </html>
@@ -138,6 +139,40 @@ void setup() {
     json += "\"messageConfirmed\":" + String(messageConfirmed ? "true" : "false");
     json += "}";
     server.send(200, "application/json", json);
+  });
+
+  server.on("/fw", HTTP_GET, []() {
+    server.send(200, "text/html", R"rawliteral(
+      <!DOCTYPE html><html><body>
+      <h2>Firmware Update</h2>
+      <form method='POST' action='/fw' enctype='multipart/form-data'>
+        <input type='file' name='update'>
+        <input type='submit' value='Upload'>
+      </form>
+      </body></html>
+    )rawliteral");
+  });
+
+  server.on("/fw", HTTP_POST, []() {
+    server.send(200, "text/plain", Update.hasError() ? "❌ Update Failed" : "✅ Update Success! Rebooting...");
+    delay(1000);
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("🔁 Updating: %s\n", upload.filename.c_str());
+      if (!Update.begin()) Update.printError(Serial);
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) {
+        Serial.println("✅ Update finished");
+      } else {
+        Update.printError(Serial);
+      }
+    }
   });
 
   server.begin();
