@@ -161,10 +161,10 @@ void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   display.begin();
-  display.setIntensity(5);
-  display.setZone(0, 0, MAX_DEVICES - 1);
-  display.setZoneEffect(0, true, PA_FLIP_UD);
-display.setZoneEffect(0, true, PA_FLIP_LR);
+  display.setIntensity(5);  // set brightness to 5 (0-15)
+  display.setZone(0, 0, MAX_DEVICES - 1); //  set zone to all devices
+  display.setZoneEffect(0, true, PA_FLIP_UD); //  flip upside down
+  display.setZoneEffect(0, true, PA_FLIP_LR); //  flip left to right
 
   display.displayClear();
 
