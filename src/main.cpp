@@ -305,10 +305,9 @@ form.addEventListener('submit', e => {
 void loop() {
   server.handleClient();
 
-  if (displayOn && display.displayAnimate()) {
-    if (!hasScrolled) {
+  if (displayOn) {
+    if (display.displayAnimate()) {
       display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
-      hasScrolled = true;
     }
   }
 
