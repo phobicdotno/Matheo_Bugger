@@ -13,6 +13,7 @@
 MD_Parola display = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 bool messageConfirmed = false;
 bool displayOn = true;
+bool hasScrolled = true;
 String currentText = "";
 
 const char* ssid = "teliaphobic";
@@ -106,9 +107,8 @@ void handleSet() {
   if (server.hasArg("text")) {
     currentText = server.arg("text");
     messageConfirmed = false;
-
-    // Always turn display on and scroll
     displayOn = true;
+    hasScrolled = false;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
   }
@@ -121,9 +121,8 @@ void handleToggle() {
   displayOn = !displayOn;
 
   if (!displayOn) {
-    // TURN OFF — Blink OK
     display.displayClear();
-    display.displayText("OK", PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
+    display.displayText("BYE", PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
     display.displayAnimate();
     for (int i = 0; i < 3; i++) {
       for (int intensity = 15; intensity >= 2; intensity--) {
@@ -136,7 +135,6 @@ void handleToggle() {
     display.displayClear();
     display.setIntensity(5);
   } else {
-    // TURN ON — Blink HELLO only (no scroll)
     display.displayClear();
     display.displayText("HELLO", PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
     display.displayAnimate();
@@ -150,6 +148,7 @@ void handleToggle() {
     }
     display.displayClear();
     display.setIntensity(5);
+    hasScrolled = true;  // prevents scroll unless /set is hit again
   }
 
   server.sendHeader("Location", "/", true);
@@ -173,20 +172,24 @@ void setup() {
 
   currentText = WiFi.status() == WL_CONNECTED ? "WiFi OK: " + WiFi.localIP().toString() : "No WiFi!";
   display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+  hasScrolled = false;
 
   server.on("/", handleRoot);
   server.on("/set", handleSet);
   server.on("/toggle", handleToggle);
   server.on("/status", []() {
-    String json = "{\"displayOn\":" + String(displayOn ? "true" : "false") +
-                  ",\"messageConfirmed\":" + String(messageConfirmed ? "true" : "false") + "}";
+    String json = "{";
+    json += "\"displayOn\":" + String(displayOn ? "true" : "false") + ",";
+    json += "\"messageConfirmed\":" + String(messageConfirmed ? "true" : "false");
+    json += "}";
     server.send(200, "application/json", json);
   });
 
-  // OTA /fw
+  // === OTA Update ===
   server.on("/fw", HTTP_GET, []() {
     server.send(200, "text/html", R"rawliteral(
-<!DOCTYPE html><html><head><meta charset="utf-8">
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
 <title>Firmware Update</title>
 <style>
 body { font-family: sans-serif; text-align: center; padding: 2em; background: #f0f0f0; }
@@ -296,7 +299,10 @@ void loop() {
   server.handleClient();
 
   if (displayOn && display.displayAnimate()) {
-    display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+    if (!hasScrolled) {
+      display.displayScroll(currentText.c_str(), PA_LEFT, PA_SCROLL_LEFT, 75);
+      hasScrolled = true;
+    }
   }
 
   if (digitalRead(BUTTON_PIN) == LOW) {
