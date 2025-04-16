@@ -2,7 +2,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Update.h>
-#include <ESP.h> // For heap and flash info
+#include <ESP.h>
 #include "m_ota.h"
 #include "m_web.h"
 
@@ -13,21 +13,24 @@ void setupOTA() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Firmware Update & System Stats</title>
+  <title>Firmware Update & WiFi Config</title>
   <style>
     body { font-family: sans-serif; padding: 1em; background: #f0f0f0; text-align: center; }
-    .status { margin: 1em auto; max-width: 400px; }
-    input[type="submit"] {
+    .status, .wifi { margin: 1em auto; max-width: 400px; }
+    input[type="submit"], button {
       padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 5px;
-      cursor: pointer; font-size: 1em;
+      cursor: pointer; font-size: 1em; margin-top: 10px;
     }
-    input[type="submit"]:hover { background-color: #0056b3; }
-    #progressWrapper { margin: 2em auto; width: 300px; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; }
+    button:hover, input[type="submit"]:hover { background-color: #0056b3; }
+    select, input[type="password"] {
+      padding: 8px; font-size: 1em; width: 90%; margin-top: 10px;
+    }
+    #progressWrapper { margin: 1em auto; width: 300px; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; }
     #progressBar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
   </style>
 </head>
 <body>
-  <h2>Firmware Update & System Stats</h2>
+  <h2>Firmware Update & WiFi Config</h2>
   
   <form id="uploadForm">
     <input type="file" id="file" required>
@@ -37,12 +40,13 @@ void setupOTA() {
   <div id="progressWrapper"><div id="progressBar"></div></div>
   <div id="status">Waiting...</div>
 
-  <div class="status">
-    <h3>System Info</h3>
-    <p>CPU Frequency: <span id="cpuFreq">...</span> MHz</p>
-    <p>Free RAM: <span id="freeRAM">...</span> bytes</p>
-    <p>Flash Usage: <span id="flashUsed">...</span> / <span id="flashTotal">...</span> bytes</p>
-    <p>WiFi Strength (RSSI): <span id="wifiRSSI">...</span> dBm</p>
+  <div class="wifi">
+    <h3>WiFi Networks</h3>
+    <button onclick="scanNetworks()">Scan Networks</button><br>
+    <select id="ssidList"></select><br>
+    <input type="password" id="wifiPass" placeholder="WiFi Password"><br>
+    <button onclick="connectWifi()">Connect WiFi (DHCP)</button><br>
+    <div id="wifiStatus">Not connected</div>
   </div>
 
   <script>
@@ -68,17 +72,34 @@ void setupOTA() {
       document.getElementById('status').innerText = "Uploading...";
     });
 
-    function updateStats() {
-      fetch('/stats').then(r => r.json()).then(data => {
-        document.getElementById('cpuFreq').innerText = data.cpuFreq;
-        document.getElementById('freeRAM').innerText = data.freeRAM;
-        document.getElementById('flashUsed').innerText = data.flashUsed;
-        document.getElementById('flashTotal').innerText = data.flashTotal;
-        document.getElementById('wifiRSSI').innerText = data.wifiRSSI;
+    function scanNetworks() {
+      document.getElementById('wifiStatus').innerText = "Scanning...";
+      fetch('/scan').then(r => r.json()).then(data => {
+        const ssidList = document.getElementById('ssidList');
+        ssidList.innerHTML = '';
+        data.networks.forEach(net => {
+          let option = document.createElement('option');
+          option.value = net;
+          option.text = net;
+          ssidList.add(option);
+        });
+        document.getElementById('wifiStatus').innerText = "Scan complete!";
       });
     }
-    setInterval(updateStats, 3000);
-    updateStats();
+
+    function connectWifi() {
+      const ssid = document.getElementById('ssidList').value;
+      const pass = document.getElementById('wifiPass').value;
+      document.getElementById('wifiStatus').innerText = "Connecting...";
+      
+      fetch('/connect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}`
+      }).then(r => r.text()).then(status => {
+        document.getElementById('wifiStatus').innerText = status;
+      });
+    }
   </script>
 </body>
 </html>
@@ -102,18 +123,38 @@ void setupOTA() {
     }
   });
 
-  server.on("/stats", []() {
-    uint32_t flashSize = ESP.getFlashChipSize();
-    uint32_t flashUsed = ESP.getSketchSize();
-
-    String json = "{";
-    json += "\"cpuFreq\":" + String(getCpuFrequencyMhz()) + ",";
-    json += "\"freeRAM\":" + String(ESP.getFreeHeap()) + ",";
-    json += "\"flashUsed\":" + String(flashUsed) + ",";
-    json += "\"flashTotal\":" + String(flashSize) + ",";
-    json += "\"wifiRSSI\":" + String(WiFi.RSSI());
-    json += "}";
-
+  server.on("/scan", HTTP_GET, []() {
+    int n = WiFi.scanNetworks();
+    String json = "{\"networks\":[";
+    for (int i = 0; i < n; ++i) {
+      int ch = WiFi.channel(i);
+      String band = (ch <= 14) ? "2.4GHz" : "5GHz";
+      if (i) json += ",";
+      json += "\"" + WiFi.SSID(i) + " (" +
+              String(WiFi.RSSI(i)) + " dBm, Ch: " +
+              String(ch) + ", " + band + ")\"";
+    }
+    json += "]}";
     server.send(200, "application/json", json);
+  });
+  
+
+  server.on("/connect", HTTP_POST, []() {
+    String ssid = server.arg("ssid");
+    String pass = server.arg("pass");
+
+    WiFi.disconnect();
+    WiFi.begin(ssid.c_str(), pass.c_str());
+
+    unsigned long startAttempt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000) {
+      delay(500);
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      server.send(200, "text/plain", "✅ Connected! IP: " + WiFi.localIP().toString());
+    } else {
+      server.send(200, "text/plain", "❌ Connection Failed");
+    }
   });
 }
