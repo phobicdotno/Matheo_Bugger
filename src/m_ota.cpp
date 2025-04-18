@@ -5,6 +5,8 @@
 #include <ESP.h>
 #include "m_ota.h"
 #include "m_web.h"
+#include "m_wifi.h"
+#include "m_display.h"
 
 void setupOTA() {
   server.on("/fw", HTTP_GET, []() {
@@ -137,24 +139,26 @@ void setupOTA() {
     json += "]}";
     server.send(200, "application/json", json);
   });
-  
 
   server.on("/connect", HTTP_POST, []() {
     String ssid = server.arg("ssid");
     String pass = server.arg("pass");
 
-    WiFi.disconnect();
-    WiFi.begin(ssid.c_str(), pass.c_str());
+    bool ok = tryConnect(ssid, pass, 15000);   // one 15‑s attempt
 
-    unsigned long startAttempt = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000) {
-      delay(500);
-    }
+    if (ok) {
+      saveCredentials(ssid, pass);
 
-    if (WiFi.status() == WL_CONNECTED) {
-      server.send(200, "text/plain", "✅ Connected! IP: " + WiFi.localIP().toString());
+      IPAddress ip = WiFi.localIP();
+      currentText = "IP: " + ip.toString();
+      displayOn = true;
+      display.displayClear();
+      display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
+
+      server.send(200, "text/plain",
+                  "✅ Connected! IP: " + ip.toString());
     } else {
       server.send(200, "text/plain", "❌ Connection Failed");
     }
-  });
+  });     // end of /connect route
 }
