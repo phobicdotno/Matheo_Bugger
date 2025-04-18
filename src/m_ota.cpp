@@ -125,21 +125,20 @@ void setupOTA() {
     }
   });
 
+  // SCAN handler
   server.on("/scan", HTTP_GET, []() {
     int n = WiFi.scanNetworks();
     String json = "{\"networks\":[";
     for (int i = 0; i < n; ++i) {
-      int ch = WiFi.channel(i);
-      String band = (ch <= 14) ? "2.4GHz" : "5GHz";
-      if (i) json += ",";
-      json += "\"" + WiFi.SSID(i) + " (" +
-              String(WiFi.RSSI(i)) + " dBm, Ch: " +
-              String(ch) + ", " + band + ")\"";
+      if (i) json += ',';
+      json += '\"' + WiFi.SSID(i) + '\"';    // SSID only
     }
     json += "]}";
     server.send(200, "application/json", json);
   });
 
+  // CONNECT handler
+  // This is a POST request to connect to a WiFi network
   server.on("/connect", HTTP_POST, []() {
     String ssid = server.arg("ssid");
     String pass = server.arg("pass");
