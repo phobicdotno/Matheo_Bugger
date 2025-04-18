@@ -4,55 +4,48 @@
 #include <Preferences.h>
 
 #include "m_wifi.h"
-#include "m_display.h"      // gives currentText, displayOn, display
+#include "m_display.h"
 
-// ──────────────────────
-// default “factory” Wi‑Fi
-// ──────────────────────
+// factory network (used only when NVS is empty)
 static const char *FACTORY_SSID = "teliaphobic";
 static const char *FACTORY_PASS = "bdxCugDF";
 
-// optional static lease used with the factory SSID
+// optional static IP for the factory network
 static const bool USE_STATIC_IP = true;
 static IPAddress  local_IP (192,168,1,111);
 static IPAddress  gateway  (192,168,1,  1);
 static IPAddress  subnet   (255,255,255,0);
 
-// NVS namespace for stored credentials
+// NVS store
 static Preferences prefs;
 
-// forward‑declared helpers (prototypes in m_wifi.h)
+// forward declarations (also in m_wifi.h)
 bool  tryConnect(const String &ssid,
                  const String &pass,
                  uint32_t timeoutMs);
 void  saveCredentials(const String &ssid,
                        const String &pass);
 
-// ──────────────────────
-// load stored credentials (empty string if none)
-// ──────────────────────
+// load from NVS
 static void loadCredentials(String &ssid, String &pass)
 {
-  prefs.begin("wifi", true);        // read‑only
+  prefs.begin("wifi", true);
   ssid = prefs.getString("ssid", "");
   pass = prefs.getString("pass", "");
   prefs.end();
 }
 
-// ──────────────────────
-// first‑boot / power‑up Wi‑Fi routine
-// ──────────────────────
+// runs in setup()
 void setupWiFi()
 {
   String cfgSsid, cfgPass;
   loadCredentials(cfgSsid, cfgPass);
 
-  // choose which credentials to try
   const char *ssid = cfgSsid.length() ? cfgSsid.c_str() : FACTORY_SSID;
   const char *pass = cfgSsid.length() ? cfgPass.c_str() : FACTORY_PASS;
 
   WiFi.mode(WIFI_STA);
-  if (USE_STATIC_IP && !cfgSsid.length())      // static IP only for factory creds
+  if (USE_STATIC_IP && !cfgSsid.length())
     WiFi.config(local_IP, gateway, subnet);
 
   WiFi.begin(ssid, pass);
@@ -70,9 +63,9 @@ void setupWiFi()
     currentText = "WiFi OK: " + ip.toString();
   } else {
     Serial.println("\nNo WiFi – starting fallback AP");
-    WiFi.mode(WIFI_AP_STA);              // keep STA alive for later attempts
+    WiFi.mode(WIFI_AP_STA);
     WiFi.softAP("MatheoBugger-fallback");
-    IPAddress ip = WiFi.softAPIP();      // 192.168.4.1
+    IPAddress ip = WiFi.softAPIP();
     Serial.printf("AP IP = %s\n", ip.toString().c_str());
     currentText = "AP " + ip.toString();
   }
@@ -83,26 +76,22 @@ void setupWiFi()
                         PA_RIGHT, PA_SCROLL_RIGHT, 75);
 }
 
-// ──────────────────────
-// saveCredentials – public helper
-// ──────────────────────
+// save to NVS
 void saveCredentials(const String &ssid, const String &pass)
 {
-  prefs.begin("wifi", false);           // read‑write
+  prefs.begin("wifi", false);
   prefs.putString("ssid", ssid);
   prefs.putString("pass", pass);
   prefs.end();
   Serial.println("Credentials saved to NVS");
 }
 
-// ──────────────────────
-// tryConnect – public helper
-// ──────────────────────
+// one‑shot connection helper
 bool tryConnect(const String &ssid,
                 const String &pass,
                 uint32_t timeoutMs)
 {
-  WiFi.disconnect(true, true);          // drop current STA
+  WiFi.disconnect(true, true);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), pass.c_str());
 

@@ -130,12 +130,18 @@ void setupOTA() {
     int n = WiFi.scanNetworks();
     String json = "{\"networks\":[";
     for (int i = 0; i < n; ++i) {
+      int ch = WiFi.channel(i);
+      String band = (ch <= 14) ? "2.4GHz" : "5GHz";
       if (i) json += ',';
-      json += '\"' + WiFi.SSID(i) + '\"';    // SSID only
+      json += '"' + WiFi.SSID(i) + " (" +
+              String(WiFi.RSSI(i)) + " dBm, Ch: " +
+              String(ch) + ", " + band + ')' + '"';
     }
     json += "]}";
     server.send(200, "application/json", json);
   });
+
+
 
   // CONNECT handler
   // This is a POST request to connect to a WiFi network

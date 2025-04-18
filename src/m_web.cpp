@@ -86,18 +86,21 @@ void handleRoot() {
 }
 
 // Handler for setting a new message
-void handleSet() {
+void handleSet()
+{
   if (server.hasArg("text")) {
     currentText = server.arg("text");
-    // Reset confirmation if needed
     messageConfirmed = false;
     displayOn = true;
+    hasScrolled = false;                    // re‑arm scrolling
     display.displayClear();
-    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
+    display.displayScroll(currentText.c_str(),
+                          PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
   server.sendHeader("Location", "/", true);
   server.send(302, "text/plain", "");
 }
+
 
 // Handler for toggling the display on/off
 void handleToggle() {
