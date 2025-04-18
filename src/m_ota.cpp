@@ -1,169 +1,158 @@
+// src/m_ota.cpp
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Update.h>
 #include <ESP.h>
+
 #include "m_ota.h"
-#include "m_web.h"
-#include "m_wifi.h"
-#include "m_display.h"
+#include "m_web.h"       // <— must pull in extern WebServer server
+#include "m_wifi.h"      // <— for tryConnect & saveCredentials
+#include "m_display.h"   // <— for currentText, displayOn, etc.
 
 void setupOTA() {
+  // Mobile‑friendly firmware + WiFi page
   server.on("/fw", HTTP_GET, []() {
     String html = R"rawliteral(
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Firmware Update & WiFi Config</title>
+<html lang="en"><head><meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>⚙️ Matheo Bugger FW & WiFi</title>
   <style>
-    body { font-family: sans-serif; padding: 1em; background: #f0f0f0; text-align: center; }
-    .status, .wifi { margin: 1em auto; max-width: 400px; }
-    input[type="submit"], button {
-      padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 5px;
-      cursor: pointer; font-size: 1em; margin-top: 10px;
-    }
-    button:hover, input[type="submit"]:hover { background-color: #0056b3; }
-    select, input[type="password"] {
-      padding: 8px; font-size: 1em; width: 90%; margin-top: 10px;
-    }
-    #progressWrapper { margin: 1em auto; width: 300px; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; }
-    #progressBar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
+    body { font-family: sans-serif; background:#f0f0f0; padding:1em; }
+    .wrapper { max-width:500px; margin:auto; display:flex; flex-direction:column; gap:1em; }
+    input,select,button { width:100%; padding:12px; font-size:1em; box-sizing:border-box; }
+    #progressWrapper { width:100%; height:20px; background:#ddd; border-radius:10px; overflow:hidden; }
+    #progressBar { width:0%; height:100%; background:#28a745; transition:width 0.3s ease; }
+    #wifiStatus { text-align:center; font-weight:bold; }
   </style>
-</head>
-<body>
-  <h2>Firmware Update & WiFi Config</h2>
-  
-  <form id="uploadForm">
-    <input type="file" id="file" required>
-    <input type="submit" value="Upload Firmware">
-  </form>
-  
-  <div id="progressWrapper"><div id="progressBar"></div></div>
-  <div id="status">Waiting...</div>
-
-  <div class="wifi">
+</head><body>
+  <div class="wrapper">
+    <h2>⚙️ Firmware & WiFi Config</h2>
+    <form id="uploadForm">
+      <input type="file" id="file" required/>
+      <input type="submit" value="Upload Firmware"/>
+    </form>
+    <div id="progressWrapper"><div id="progressBar"></div></div>
+    <div id="status">Waiting...</div>
     <h3>WiFi Networks</h3>
-    <button onclick="scanNetworks()">Scan Networks</button><br>
-    <select id="ssidList"></select><br>
-    <input type="password" id="wifiPass" placeholder="WiFi Password"><br>
-    <button onclick="connectWifi()">Connect WiFi (DHCP)</button><br>
+    <button id="scanBtn">Scan Networks</button>
+    <select id="ssidList"></select>
+    <input type="password" id="wifiPass" placeholder="WiFi Password"/>
+    <button id="connectBtn">Connect WiFi</button>
     <div id="wifiStatus">Not connected</div>
   </div>
+<script>
+document.getElementById('uploadForm').onsubmit = e => {
+  e.preventDefault();
+  let file = document.getElementById('file').files[0];
+  if (!file) return;
+  let xhr = new XMLHttpRequest();
+  xhr.open("POST","/fw",true);
+  xhr.upload.onprogress = ev => {
+    document.getElementById('progressBar').style.width =
+      Math.round(ev.loaded/ev.total*100)+"%";
+  };
+  xhr.onload = () => {
+    document.getElementById('status').innerText = xhr.responseText;
+    setTimeout(()=>location.reload(),5000);
+  };
+  let fd = new FormData();
+  fd.append("update", file);
+  xhr.send(fd);
+  document.getElementById('status').innerText = "Uploading…";
+};
 
-  <script>
-    const form = document.getElementById('uploadForm');
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const file = document.getElementById('file').files[0];
-      if (!file) return;
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/fw", true);
-      xhr.upload.onprogress = e => {
-        const percent = (e.loaded / e.total) * 100;
-        document.getElementById('progressBar').style.width = percent + '%';
-      };
-      xhr.onload = () => {
-        document.getElementById('status').innerText = xhr.responseText;
-        setTimeout(() => { location.reload(); }, 5000);
-      };
-      const formData = new FormData();
-      formData.append("update", file);
-      xhr.send(formData);
-      document.getElementById('status').innerText = "Uploading...";
+document.getElementById('scanBtn').onclick = () => {
+  let st = document.getElementById('wifiStatus');
+  st.innerText = "Scanning…";
+  fetch('/scan').then(r=>r.json()).then(data=>{
+    let sel = document.getElementById('ssidList');
+    sel.innerHTML = '';
+    data.networks.forEach(net => {
+      let name = net.split(' (')[0];
+      let opt = document.createElement('option');
+      opt.value = name; opt.text = net;
+      sel.add(opt);
     });
+    st.innerText = "Scan complete!";
+  });
+};
 
-    function scanNetworks() {
-      document.getElementById('wifiStatus').innerText = "Scanning...";
-      fetch('/scan').then(r => r.json()).then(data => {
-        const ssidList = document.getElementById('ssidList');
-        ssidList.innerHTML = '';
-        data.networks.forEach(net => {
-          let option = document.createElement('option');
-          option.value = net;
-          option.text = net;
-          ssidList.add(option);
-        });
-        document.getElementById('wifiStatus').innerText = "Scan complete!";
-      });
+document.getElementById('connectBtn').onclick = () => {
+  let ssid = encodeURIComponent(document.getElementById('ssidList').value);
+  let pass = encodeURIComponent(document.getElementById('wifiPass').value);
+  let st = document.getElementById('wifiStatus');
+  st.innerText = "Connecting…";
+  fetch('/connect', {
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`ssid=${ssid}&pass=${pass}`
+  })
+  .then(r=>r.text())
+  .then(ip=>{
+    if (ip==='FAIL') {
+      st.innerText = "❌ Connection Failed";
+    } else {
+      window.location.href = 'http://'+ip+'/';
     }
-
-    function connectWifi() {
-      const ssid = document.getElementById('ssidList').value;
-      const pass = document.getElementById('wifiPass').value;
-      document.getElementById('wifiStatus').innerText = "Connecting...";
-      
-      fetch('/connect', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}`
-      }).then(r => r.text()).then(status => {
-        document.getElementById('wifiStatus').innerText = status;
-      });
-    }
-  </script>
-</body>
-</html>
-    )rawliteral";
-
+  });
+};
+</script>
+</body></html>
+)rawliteral";
     server.send(200, "text/html", html);
   });
 
+  // POST handler for firmware upload
   server.on("/fw", HTTP_POST, []() {
-    server.send(200, "text/plain; charset=utf-8", Update.hasError() ? "❌ Update Failed" : "✅ Update Success! Rebooting...");
-    delay(1000);
-    ESP.restart();
+    server.send(200, "text/plain; charset=utf-8",
+      Update.hasError() ? "❌ Update Failed" : "✅ Update Success! Rebooting...");
+    delay(1000); ESP.restart();
   }, []() {
-    HTTPUpload& upload = server.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      Update.begin();
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      Update.write(upload.buf, upload.currentSize);
-    } else if (upload.status == UPLOAD_FILE_END) {
-      Update.end(true);
-    }
+    HTTPUpload& up = server.upload();
+    if (up.status == UPLOAD_FILE_START) Update.begin();
+    if (up.status == UPLOAD_FILE_WRITE) Update.write(up.buf, up.currentSize);
+    if (up.status == UPLOAD_FILE_END)   Update.end(true);
   });
 
-  // SCAN handler
+  // Scan endpoint
   server.on("/scan", HTTP_GET, []() {
     int n = WiFi.scanNetworks();
-    String json = "{\"networks\":[";
-    for (int i = 0; i < n; ++i) {
+    String j = "{\"networks\":[";
+    for(int i=0;i<n;i++){
+      if(i) j += ',';
       int ch = WiFi.channel(i);
-      String band = (ch <= 14) ? "2.4GHz" : "5GHz";
-      if (i) json += ',';
-      json += '"' + WiFi.SSID(i) + " (" +
-              String(WiFi.RSSI(i)) + " dBm, Ch: " +
-              String(ch) + ", " + band + ')' + '"';
+      String band = (ch<=14) ? "2.4GHz" : "5GHz";
+      j += "\"" + WiFi.SSID(i) +
+           " (" + String(WiFi.RSSI(i)) + " dBm, Ch " +
+           String(ch) + ", " + band + ")\"";
     }
-    json += "]}";
-    server.send(200, "application/json", json);
+    j += "]}";
+    server.send(200, "application/json", j);
   });
 
-
-
-  // CONNECT handler
-  // This is a POST request to connect to a WiFi network
+  // Connect endpoint
   server.on("/connect", HTTP_POST, []() {
-    String ssid = server.arg("ssid");
-    String pass = server.arg("pass");
-
-    bool ok = tryConnect(ssid, pass, 15000);   // one 15‑s attempt
-
-    if (ok) {
-      saveCredentials(ssid, pass);
-
-      IPAddress ip = WiFi.localIP();
-      currentText = "IP: " + ip.toString();
-      displayOn = true;
-      display.displayClear();
-      display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
-
-      server.send(200, "text/plain",
-                  "✅ Connected! IP: " + ip.toString());
-    } else {
-      server.send(200, "text/plain", "❌ Connection Failed");
+    String ssid = server.arg("ssid"),
+           pass = server.arg("pass");
+    if (!tryConnect(ssid, pass, 15000)) {
+      server.send(200, "text/plain", "FAIL");
+      return;
     }
-  });     // end of /connect route
+    saveCredentials(ssid, pass);
+    WiFi.softAPdisconnect(true);
+
+    IPAddress ip = WiFi.localIP();
+    currentText = ip.toString();
+    displayOn   = true;
+    scrolledOnce=false;
+    display.displayClear();
+    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
+
+    server.send(200, "text/plain", ip.toString());
+  });
+
+  server.begin();
 }

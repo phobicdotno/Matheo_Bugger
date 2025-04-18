@@ -1,3 +1,5 @@
+// src/m_display.h
+
 #pragma once
 #include <Arduino.h>
 #include <MD_Parola.h>
@@ -13,7 +15,7 @@ extern MD_Parola display;
 extern bool displayOn;
 extern String currentText;
 extern bool messageConfirmed;
-extern bool hasScrolled;
+extern bool scrolledOnce;
 
 void setupDisplay();
 void handleDisplayLoop();
