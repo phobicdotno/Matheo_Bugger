@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>📊 System Status</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      padding: 1em;
+    }
+    .wrapper {
+      max-width: 500px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1em;
+    }
+    h2 {
+      text-align: center;
+    }
+    .info {
+      background: white;
+      border-radius: 8px;
+      padding: 1em;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .info p {
+      margin: 0.5em 0;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <h2>📊 System Status</h2>
+    <div class="info" id="statusInfo">
+      <p>Loading...</p>
+    </div>
+  </div>
+
+  <script>
+    fetch('/status')
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('statusInfo');
+        el.innerHTML = `
+          <p>📶 <strong>SSID:</strong> ${data.ssid}</p>
+          <p>🌐 <strong>IP:</strong> ${data.ip}</p>
+          <p>🧭 <strong>Gateway:</strong> ${data.gateway}</p>
+          <p>🧠 <strong>MAC:</strong> ${data.mac}</p>
+          <p>📡 <strong>Signal:</strong> ${data.signal} dBm</p>
+          <p>💾 <strong>LittleFS:</strong> ${Math.floor(data.freeSpace/1024)} KB free / ${Math.floor(data.totalSpace/1024)} KB total</p>
+          <p>🧠 <strong>Firmware space:</strong> ${Math.floor(data.fwSpace/1024)} KB</p>
+          <p>👥 <strong>Connections:</strong> ${data.clientCount}</p>
+        `;
+      });
+  </script>
+</body>
+</html>

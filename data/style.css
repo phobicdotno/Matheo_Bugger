@@ -3,26 +3,49 @@ body {
   background: #f0f0f0;
   padding: 1em;
 }
+
 .wrapper {
   max-width: 500px;
   margin: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5em; /* extra spacing between blocks */
+  gap: 1.5em;
 }
-input,
-select,
-button {
-  width: 100%;
-  padding: 20px;         /* ← doubled height */
-  font-size: 1.1em;
-  box-sizing: border-box;
-}
+
 form {
   display: flex;
   flex-direction: column;
-  gap: 1em;              /* space between inputs in each form */
+  gap: 1em;
 }
+
+input[type="file"],
+select,
+input[type="password"] {
+  padding: 20px;
+  font-size: 1.1em;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Style for all main buttons */
+button,
+input[type="submit"] {
+  padding: 20px;
+  font-size: 1.1em;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+button:hover,
+input[type="submit"]:hover {
+  background-color: #0056b3;
+}
+
 #progressWrapper {
   width: 100%;
   height: 20px;
@@ -30,12 +53,14 @@ form {
   border-radius: 10px;
   overflow: hidden;
 }
+
 #progressBar {
   width: 0%;
   height: 100%;
   background: #28a745;
   transition: width 0.3s ease;
 }
+
 #wifiStatus {
   text-align: center;
   font-weight: bold;

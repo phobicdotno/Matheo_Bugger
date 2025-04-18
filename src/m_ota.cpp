@@ -20,6 +20,7 @@ void setupOTA() {
   server.serveStatic("/fw",        LittleFS, "/index.html");
   server.serveStatic("/style.css", LittleFS, "/style.css");
   server.serveStatic("/script.js", LittleFS, "/script.js");
+  server.serveStatic("/status.html", LittleFS, "/status.html");
 
   // 3) Firmware upload
   server.on("/fw", HTTP_POST, []() {

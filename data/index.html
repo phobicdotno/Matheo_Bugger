@@ -11,6 +11,7 @@
     <h2>⚙️ Firmware & WiFi Config</h2>
 
     <!-- Firmware upload -->
+    <p id="fwSpace" style="text-align:center; font-weight:bold;">Checking available space…</p>
     <form id="uploadForm">
       <input type="file" id="file" required />
       <input type="submit" value="Upload Firmware" />
@@ -29,6 +30,16 @@
     <div id="wifiStatus">Not connected</div>
   </div>
 
-  <script src="/script.js"></script>
+  <script src="/script.js">fetch('/status')
+    .then(r => r.json())
+    .then(data => {
+      const fwSpace = Math.floor(data.fwSpace / 1024);
+      document.getElementById('fwSpace').textContent =
+        "🧠 Free space for firmware: " + fwSpace + " KB";
+    });
+  </script>
+
+<a href="/status.html">📊 View system status</a>
+
 </body>
 </html>

@@ -1,15 +1,14 @@
-// src/m_web.cpp
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <LittleFS.h>
 #include "m_web.h"
 #include "m_display.h"
 
-// Define the global web server instance
 WebServer server(80);
+static unsigned int connectionCount = 0;
 
-// Handler for the root URL: returns the HTML UI
+// === / (HTML UI) ===
 void handleRoot() {
   String html = R"rawliteral(
 <!DOCTYPE html>
@@ -57,6 +56,7 @@ void handleRoot() {
             : 'Waiting for confirmation...';
           btn.className = data.displayOn ? 'on' : 'off';
           btn.textContent = data.displayOn ? 'Display ON' : 'Display OFF';
+          console.log("IP: " + data.ip + ", Signal: " + data.signal + " dBm");
         });
     }
     function toggleDisplay() {
@@ -82,55 +82,66 @@ void handleRoot() {
   server.send(200, "text/html", html);
 }
 
-// Handler for setting a new message
+// === /set ===
 void handleSet() {
   if (server.hasArg("text")) {
     currentText = server.arg("text");
     messageConfirmed = false;
-    scrolledOnce = false;     // re‑arm display scroll
+    scrolledOnce = false;
     displayOn = true;
     display.displayClear();
-    display.displayScroll(
-      currentText.c_str(),
-      PA_RIGHT, PA_SCROLL_RIGHT, 75
-    );
+    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
   server.sendHeader("Location", "/", true);
   server.send(302, "text/plain", "");
 }
 
-// Handler for toggling the display on/off
+// === /toggle ===
 void handleToggle() {
   displayOn = !displayOn;
   if (!displayOn) {
     displayBlinkText("BYE");
     display.displayClear();
-    scrolledOnce = true;      // prevent any further scroll
+    scrolledOnce = true;
   } else {
     displayBlinkText("HELLO");
     display.displayClear();
-    scrolledOnce = false;     // allow scroll
-    display.displayScroll(
-      currentText.c_str(),
-      PA_RIGHT, PA_SCROLL_RIGHT, 75
-    );
+    scrolledOnce = false;
+    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
   server.sendHeader("Location", "/", true);
   server.send(302, "text/plain", "");
 }
 
-// Setup all web routes and start the server
+// === /status (with extended info) ===
+void handleStatus() {
+  connectionCount++;
+
+  String json = "{";
+  json += "\"displayOn\":" + String(displayOn ? "true" : "false") + ",";
+  json += "\"messageConfirmed\":" + String(messageConfirmed ? "true" : "false") + ",";
+  json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+  json += "\"gateway\":\"" + WiFi.gatewayIP().toString() + "\",";
+  json += "\"ssid\":\"" + WiFi.SSID() + "\",";
+  json += "\"mac\":\"" + WiFi.macAddress() + "\",";
+  json += "\"signal\":" + String(WiFi.RSSI()) + ",";
+  json += "\"clientCount\":" + String(connectionCount) + ",";
+
+  size_t total = LittleFS.totalBytes();
+  size_t used  = LittleFS.usedBytes();
+  json += "\"freeSpace\":" + String(total - used) + ",";
+  json += "\"totalSpace\":" + String(total);
+  json += "}";
+
+  server.send(200, "application/json", json);
+}
+
+// === Setup routes ===
 void setupWeb() {
   server.on("/", handleRoot);
   server.on("/set", handleSet);
   server.on("/toggle", handleToggle);
-  server.on("/status", []() {
-    String j = "{\"displayOn\":";
-    j += (displayOn ? "true" : "false");
-    j += ",\"messageConfirmed\":";
-    j += (messageConfirmed ? "true" : "false");
-    j += "}";
-    server.send(200, "application/json", j);
-  });
+  server.on("/status", handleStatus);
   server.begin();
 }
+  
