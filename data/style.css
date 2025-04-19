@@ -65,3 +65,26 @@ input[type="submit"]:hover {
   text-align: center;
   font-weight: bold;
 }
+
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: #007bff;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  font-size: 1.4em;
+  z-index: 99;
+}
+.nav a {
+  color: white;
+  text-decoration: none;
+  padding-bottom: 2px;
+  transition: transform 0.2s ease;
+}
+.nav a:hover {
+  transform: scale(1.3);
+}

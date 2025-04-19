@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>🛠️ WiFi & Firmware</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrapper">
+    <h2>🛠️ Firmware & WiFi</h2>
+
+    <form id="uploadForm">
+      <input type="file" id="file" required />
+      <input type="submit" value="Upload Firmware" />
+    </form>
+    <div id="progressWrapper"><div id="progressBar"></div></div>
+    <div id="status">Waiting...</div>
+
+    <h3>WiFi Networks</h3>
+    <button id="scanBtn">Scan Networks</button>
+    <select id="ssidList"></select>
+    <input type="password" id="wifiPass" placeholder="WiFi Password" />
+    <button id="connectBtn">Connect WiFi</button>
+    <div id="wifiStatus">Not connected</div>
+  </div>
+
+  <script src="/script.js"></script>
+  <div class="nav">
+    <a href="/"><span>🏠</span></a>
+    <a href="/fw.html"><span>🛜</span></a>
+    <a href="/status.html"><span>📊</span></a>
+  </div>
+</body>
+</html>

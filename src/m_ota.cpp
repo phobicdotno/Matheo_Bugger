@@ -16,13 +16,23 @@ void setupOTA() {
     return;
   }
 
-  // 2) Serve UI files
-  server.serveStatic("/fw",        LittleFS, "/index.html");
+  // 2) Serve UI files from /data
   server.serveStatic("/style.css", LittleFS, "/style.css");
   server.serveStatic("/script.js", LittleFS, "/script.js");
+  server.serveStatic("/fw.html", LittleFS, "/fw.html");
   server.serveStatic("/status.html", LittleFS, "/status.html");
 
-  // 3) Firmware upload
+  // 3) Redirect pretty routes to .html files
+  server.on("/fw", HTTP_GET, []() {
+    server.sendHeader("Location", "/fw.html", true);
+    server.send(302, "text/plain", "");
+  });
+  server.on("/status", HTTP_GET, []() {
+    server.sendHeader("Location", "/status.html", true);
+    server.send(302, "text/plain", "");
+  });
+
+  // 4) Firmware upload
   server.on("/fw", HTTP_POST, []() {
     server.send(200, "text/plain; charset=utf-8",
       Update.hasError() ? "❌ Update Failed" : "✅ Update Success! Rebooting..."
@@ -36,9 +46,9 @@ void setupOTA() {
     else if (up.status == UPLOAD_FILE_END)   Update.end(true);
   });
 
-  // 4) Scan endpoint
+  // 5) WiFi Scan
   server.on("/scan", HTTP_GET, []() {
-    int n = WiFi.scanNetworks();  // <– blocking, reliable
+    int n = WiFi.scanNetworks();  // blocking scan (works reliably)
   
     String j = "{\"networks\":[";
     for (int i = 0; i < n; ++i) {
@@ -53,7 +63,7 @@ void setupOTA() {
     server.send(200, "application/json", j);
   });
 
-    // 5) Connect endpoint → SIMPLE FORM POST
+  // 6) WiFi Connect
   server.on("/connect", HTTP_POST, []() {
     String ssid = server.arg("ssid");
     String pass = server.arg("pass");
@@ -67,20 +77,19 @@ void setupOTA() {
   
     saveCredentials(ssid, pass);
     WiFi.softAPdisconnect(true);
-    delay(200);  // let interface stabilize
-  
+    delay(200);  // allow network settle
+
     IPAddress ip = WiFi.localIP();
     Serial.printf("[CONNECT] Success! New IP: %s\n", ip.toString().c_str());
-  
+
     currentText = ip.toString();
     displayOn = true;
     scrolledOnce = false;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
-  
+
     String response = "✅ IP changed to " + ip.toString() +
                       " — please switch to WiFi: " + ssid;
     server.send(200, "text/plain; charset=utf-8", response);
   });
-  
 }
