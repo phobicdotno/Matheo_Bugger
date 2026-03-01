@@ -18,4 +18,5 @@ void loop(){
   server.handleClient();
   handleDisplayLoop();
   handleButton();
+  handleWiFi();
 }

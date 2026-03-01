@@ -81,6 +81,52 @@ void saveCredentials(const String &ssid, const String &pass) {
   Serial.println("Credentials saved");
 }
 
+// Public: called in loop() – reconnects WiFi if dropped
+void handleWiFi() {
+  static unsigned long lastCheck = 0;
+  static int failCount = 0;
+
+  if (millis() - lastCheck < 30000) return;  // every 30s
+  lastCheck = millis();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    failCount = 0;
+    return;
+  }
+
+  Serial.println("WiFi lost – reconnecting...");
+  WiFi.reconnect();
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+    delay(100);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    failCount = 0;
+    IPAddress ip = WiFi.localIP();
+    Serial.printf("WiFi reconnected: %s\n", ip.toString().c_str());
+    currentText = "WiFi OK: " + ip.toString();
+    displayOn = true;
+    scrollCount = 0;
+    display.displayClear();
+    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
+  } else {
+    failCount++;
+    Serial.printf("Reconnect failed (%d)\n", failCount);
+    if (failCount >= 3) {
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.softAP("MatheoBugger-fallback");
+      currentText = "AP " + WiFi.softAPIP().toString();
+      displayOn = true;
+      scrollCount = 0;
+      display.displayClear();
+      display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
+      failCount = 0;  // reset so it keeps trying STA in background
+    }
+  }
+}
+
 // Public: try to join a network (used by /connect handler)
 bool tryConnect(const String &ssid, const String &pass, uint32_t timeoutMs) {
   WiFi.disconnect(true, true);

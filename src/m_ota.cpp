@@ -7,7 +7,7 @@
 #include "m_ota.h"
 #include "m_web.h"       // extern WebServer server
 #include "m_wifi.h"      // tryConnect(), saveCredentials()
-#include "m_display.h"   // currentText, displayOn, scrolledOnce, displayBlinkText()
+#include "m_display.h"   // currentText, displayOn, scrollCount, displayBlinkText()
 
 void setupOTA() {
   // 1) Mount LittleFS
@@ -84,7 +84,7 @@ void setupOTA() {
 
     currentText = ip.toString();
     displayOn = true;
-    scrolledOnce = false;
+    scrollCount = 0;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
 

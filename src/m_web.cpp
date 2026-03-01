@@ -87,7 +87,7 @@ void handleSet() {
   if (server.hasArg("text")) {
     currentText = server.arg("text");
     messageConfirmed = false;
-    scrolledOnce = false;
+    scrollCount = 0;
     displayOn = true;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
@@ -102,11 +102,11 @@ void handleToggle() {
   if (!displayOn) {
     displayBlinkText("BYE");
     display.displayClear();
-    scrolledOnce = true;
+    scrollCount = 3;
   } else {
     displayBlinkText("HELLO");
     display.displayClear();
-    scrolledOnce = false;
+    scrollCount = 0;
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
   server.sendHeader("Location", "/", true);
