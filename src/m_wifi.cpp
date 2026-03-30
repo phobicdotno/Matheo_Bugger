@@ -108,7 +108,7 @@ void handleWiFi() {
     Serial.printf("WiFi reconnected: %s\n", ip.toString().c_str());
     currentText = "WiFi OK: " + ip.toString();
     displayOn = true;
-    scrollCount = 0;
+
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   } else {
@@ -119,7 +119,7 @@ void handleWiFi() {
       WiFi.softAP("MatheoBugger-fallback");
       currentText = "AP " + WiFi.softAPIP().toString();
       displayOn = true;
-      scrollCount = 0;
+  
       display.displayClear();
       display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
       failCount = 0;  // reset so it keeps trying STA in background

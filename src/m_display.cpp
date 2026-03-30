@@ -5,7 +5,6 @@ MD_Parola display(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 bool displayOn    = true;
 String currentText;
 bool messageConfirmed = false;
-int scrollCount      = 0;
 
 void setupDisplay() {
   display.begin();
@@ -19,10 +18,7 @@ void setupDisplay() {
 void handleDisplayLoop() {
   if (!displayOn) return;
   if (display.displayAnimate()) {
-    if (scrollCount < 3) {
-      scrollCount++;
-      display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
-    }
+    display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
 }
 
@@ -55,7 +51,6 @@ void handleButton() {
     Serial.printf("Long‑press IP: %s\n", ip.toString().c_str());
     currentText  = ip.toString();
     displayOn    = true;
-    scrollCount = 0;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
     longDone = true;

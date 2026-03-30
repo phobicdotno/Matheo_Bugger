@@ -15,7 +15,6 @@ extern MD_Parola display;
 extern bool displayOn;
 extern String currentText;
 extern bool messageConfirmed;
-extern int scrollCount;
 
 void setupDisplay();
 void handleDisplayLoop();

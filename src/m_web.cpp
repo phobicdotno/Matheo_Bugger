@@ -87,7 +87,6 @@ void handleSet() {
   if (server.hasArg("text")) {
     currentText = server.arg("text");
     messageConfirmed = false;
-    scrollCount = 0;
     displayOn = true;
     display.displayClear();
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
@@ -102,11 +101,9 @@ void handleToggle() {
   if (!displayOn) {
     displayBlinkText("BYE");
     display.displayClear();
-    scrollCount = 3;
   } else {
     displayBlinkText("HELLO");
     display.displayClear();
-    scrollCount = 0;
     display.displayScroll(currentText.c_str(), PA_RIGHT, PA_SCROLL_RIGHT, 75);
   }
   server.sendHeader("Location", "/", true);
@@ -130,7 +127,8 @@ void handleStatus() {
   size_t total = LittleFS.totalBytes();
   size_t used  = LittleFS.usedBytes();
   json += "\"freeSpace\":" + String(total - used) + ",";
-  json += "\"totalSpace\":" + String(total);
+  json += "\"totalSpace\":" + String(total) + ",";
+  json += "\"fwSpace\":" + String(ESP.getFreeSketchSpace());
   json += "}";
 
   server.send(200, "application/json", json);
