@@ -17,6 +17,15 @@
     <div id="progressWrapper"><div id="progressBar"></div></div>
     <div id="status">Waiting...</div>
 
+    <h3>📂 Filesystem (LittleFS)</h3>
+    <div id="fsInfo">Loading filesystem info...</div>
+    <form id="fsUploadForm">
+      <input type="file" id="fsFile" accept=".bin" required />
+      <input type="submit" value="Upload Filesystem Image" />
+    </form>
+    <div id="fsProgressWrapper"><div id="fsProgressBar"></div></div>
+    <div id="fsStatus">Waiting...</div>
+
     <h3>WiFi Networks</h3>
     <button id="scanBtn">Scan Networks</button>
     <select id="ssidList"></select>

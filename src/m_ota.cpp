@@ -3,6 +3,7 @@
 #include <WebServer.h>
 #include <Update.h>
 #include <ESP.h>
+#include <esp_partition.h>
 #include <LittleFS.h>
 #include "m_ota.h"
 #include "m_web.h"       // extern WebServer server
@@ -42,6 +43,27 @@ void setupOTA() {
   }, []() {
     HTTPUpload& up = server.upload();
     if (up.status == UPLOAD_FILE_START) Update.begin();
+    else if (up.status == UPLOAD_FILE_WRITE) Update.write(up.buf, up.currentSize);
+    else if (up.status == UPLOAD_FILE_END)   Update.end(true);
+  });
+
+  // 4b) Filesystem (LittleFS) upload — same pattern, U_SPIFFS command
+  server.on("/fs", HTTP_POST, []() {
+    server.send(200, "text/plain; charset=utf-8",
+      Update.hasError() ? "❌ FS Update Failed" : "✅ Filesystem Updated! Rebooting..."
+    );
+    delay(500);
+    ESP.restart();
+  }, []() {
+    HTTPUpload& up = server.upload();
+    if (up.status == UPLOAD_FILE_START) {
+      size_t fsSize = UPDATE_SIZE_UNKNOWN;
+      // Try to get the spiffs partition size for accurate progress
+      const esp_partition_t* part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL);
+      if (part) fsSize = part->size;
+      Update.begin(fsSize, U_SPIFFS);
+    }
     else if (up.status == UPLOAD_FILE_WRITE) Update.write(up.buf, up.currentSize);
     else if (up.status == UPLOAD_FILE_END)   Update.end(true);
   });

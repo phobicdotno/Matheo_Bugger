@@ -46,7 +46,8 @@ input[type="submit"]:hover {
   background-color: #0056b3;
 }
 
-#progressWrapper {
+#progressWrapper,
+#fsProgressWrapper {
   width: 100%;
   height: 20px;
   background: #ddd;
@@ -54,11 +55,18 @@ input[type="submit"]:hover {
   overflow: hidden;
 }
 
-#progressBar {
+#progressBar,
+#fsProgressBar {
   width: 0%;
   height: 100%;
   background: #28a745;
   transition: width 0.3s ease;
+}
+
+#fsInfo {
+  text-align: center;
+  font-size: 0.95em;
+  color: #555;
 }
 
 #wifiStatus {
